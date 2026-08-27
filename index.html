@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoDash Pro - Converter</title>
+    
+    <!-- Custom Colorful Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%232563eb'/><path d='M20 40c10-20 30-10 30-10s-5 30-15 30-15-20-15-20zm45-15c20-5 25 15 25 15s-15 15-25 15-20-15-20-15 20-15 20-15zm-30 50c10-15 25 5 25 5s-15 15-20 10-5-15-5-15z' fill='%2334d399'/></svg>" type="image/svg+xml">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PapaParse for CSV handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- Leaflet for Map Widget -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #6366f1; /* indigo-500 */
+            --secondary: #3b82f6; /* blue-500 */
+            --bg-dark: #030712;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f9fafb;
+            overflow-x: hidden;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Glassmorphism Classes */
+        .glass {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.4));
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+
+        /* Drop Zone Animations */
+        @keyframes radar {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+
+        .drop-zone {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: repeating-linear-gradient(45deg, rgba(30, 41, 59, 0.2), rgba(30, 41, 59, 0.2) 10px, rgba(15, 23, 42, 0.3) 10px, rgba(15, 23, 42, 0.3) 20px);
+        }
+        
+        .drop-zone:hover .drop-icon-bg {
+            animation: radar 2s infinite;
+        }
+
+        .drop-zone.dragover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #818cf8;
+            transform: scale(1.02);
+        }
+
+        /* Mode Toggle Switch Styling */
+        .toggle-bg {
+            position: absolute;
+            top: 4px; bottom: 4px; width: calc(50% - 4px);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 0.5rem;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 0;
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+        }
+        .toggle-kml2csv .toggle-bg { transform: translateX(0); }
+        .toggle-csv2kml .toggle-bg { transform: translateX(calc(100% + 8px)); }
+        .btn-text { transition: color 0.3s ease; z-index: 10; position: relative; }
+
+        /* Loader Spinner */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(99, 102, 241, 0.3);
+            border-radius: 50%;
+            border-top-color: #818cf8;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Cosmos Nebula Background */
+        .cosmos-bg {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 20% 40%, rgba(124, 58, 237, 0.25), transparent 60%),
+                radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.25), transparent 60%),
+                radial-gradient(circle at 50% 80%, rgba(14, 165, 233, 0.2), transparent 50%),
+                radial-gradient(circle at 90% 90%, rgba(219, 39, 119, 0.15), transparent 50%);
+            z-index: 0;
+            animation: cosmos-breathe 20s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+        
+        @keyframes cosmos-breathe {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 1; filter: hue-rotate(15deg); }
+        }
+
+        /* Animated Header Icon */
+        .animated-logo {
+            animation: float 4s ease-in-out infinite;
+        }
+        .spin-slow {
+            animation: spin-reverse 15s linear infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1.05); }
+            50% { transform: translateY(-8px) scale(1); }
+        }
+        @keyframes spin-reverse {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+
+        /* 3D Globe Animation */
+        @keyframes globe-spin {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-globe-spin {
+            animation: globe-spin 12s linear infinite;
+        }
+
+        /* Guide Modal Animations */
+        #guide-modal {
+            backdrop-filter: blur(20px);
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #guide-modal.hidden {
+            opacity: 0;
+            visibility: hidden;
+            display: flex; /* Keep flex context for internal alignment when active */
+        }
+
+        /* Leaflet Map Overrides for Dark Theme */
+        .leaflet-layer,
+        .leaflet-control-zoom-in,
+        .leaflet-control-zoom-out,
+        .leaflet-control-attribution {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        .leaflet-container { background: #0f172a; font-family: 'Inter', sans-serif; }
+        
+        /* Custom Tooltip Styling for GeoDash Pro */
+        .leaflet-tooltip {
+            background: rgba(15, 23, 42, 0.95) !important;
+            border: 1px solid rgba(99, 102, 241, 0.5) !important;
+            color: #f8fafc !important;
+            border-radius: 0.5rem !important;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6) !important;
+            padding: 8px 12px !important;
+        }
+        .leaflet-tooltip-top:before { border-top-color: rgba(99, 102, 241, 0.5) !important; }
+        .leaflet-tooltip-bottom:before { border-bottom-color: rgba(99, 102, 241, 0.5) !important; }
+        .leaflet-tooltip-left:before { border-left-color: rgba(99, 102, 241, 0.5) !important; }
+        .leaflet-tooltip-right:before { border-right-color: rgba(99, 102, 241, 0.5) !important; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 flex flex-col items-center py-6 px-4 md:px-8 relative overflow-x-hidden">
+
+    <!-- Space Background Canvas & Cosmos -->
+    <div class="cosmos-bg"></div>
+    <canvas id="space-canvas" class="fixed inset-0 z-0 pointer-events-none"></canvas>
+
+    <!-- Guide / Help Button -->
+    <button onclick="toggleGuide()" class="fixed top-6 right-6 z-[100] glass px-4 py-2 rounded-full text-sm font-semibold text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-400 hover:bg-indigo-500/20 transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] flex items-center gap-2 group">
+        <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        User Guide
+    </button>
+
+    <!-- User Guide Modal -->
+    <div id="guide-modal" class="fixed inset-0 z-[200] bg-slate-950/80 hidden items-center justify-center p-4">
+        <div class="glass-card max-w-2xl w-full rounded-[2rem] p-8 relative border border-indigo-500/30 shadow-2xl shadow-indigo-500/20 transform transition-all">
+            <button onclick="toggleGuide()" class="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-red-500/50 rounded-full p-2 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-6 flex items-center gap-3">
+                <svg class="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                GeoDash Pro Guide
+            </h2>
+            
+            <div class="space-y-6 text-slate-300">
+                <div class="bg-slate-900/50 p-5 rounded-xl border border-slate-700/50">
+                    <h3 class="text-indigo-300 font-bold text-lg mb-2 flex items-center gap-2">
+                        <span class="bg-indigo-500/20 px-2 py-0.5 rounded text-indigo-400 text-sm">1</span> KML to CSV Conversion
+                    </h3>
+                    <ul class="list-disc pl-5 space-y-2 text-sm">
+                        <li><strong>Structure:</strong> Extracts Geometries (Point, LineString, Polygon) into WKT.</li>
+                        <li><strong>Hierarchy:</strong> Automatically maps your KML folder structure into dynamic CSV columns (<code class="text-xs bg-slate-800 px-1 rounded text-pink-300">folder_1</code> is closest to the object).</li>
+                        <li><strong>Measurements:</strong> Toggle "Calculate Lengths" to automatically generate a measurement column using the Haversine formula.</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-slate-900/50 p-5 rounded-xl border border-slate-700/50">
+                    <h3 class="text-cyan-300 font-bold text-lg mb-2 flex items-center gap-2">
+                        <span class="bg-cyan-500/20 px-2 py-0.5 rounded text-cyan-400 text-sm">2</span> CSV to KML Conversion
+                    </h3>
+                    <ul class="list-disc pl-5 space-y-2 text-sm">
+                        <li><strong>Formatting:</strong> Your CSV must contain a <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">wkt</code> column and optional <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">name</code> / <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">description</code> columns.</li>
+                        <li><strong>Rebuilding Folders:</strong> Includes columns like <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">folder_1</code>, <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">folder_2</code>, etc. GeoDash will flawlessly rebuild the original nested KML directory tree top-down!</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <button onclick="toggleGuide()" class="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-8 py-2.5 rounded-full font-bold shadow-lg hover:shadow-indigo-500/50 transition-all hover:-translate-y-1">
+                    Let's Go!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-6xl flex flex-col gap-6 z-10 relative mt-4">
+        
+        <!-- Header -->
+        <header class="text-center space-y-4 mb-2 animate-[fadeIn_0.5s_ease-out]">
+            <div class="animated-logo inline-flex items-center justify-center p-4 rounded-3xl glass border border-indigo-500/40 shadow-[0_0_30px_rgba(99,102,241,0.3)] mb-2 bg-gradient-to-br from-slate-900 to-indigo-950">
+                
+                <!-- 3D Rotating Earth Globe -->
+                <div class="relative w-16 h-16 rounded-full overflow-hidden bg-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.6)] border border-blue-400/30">
+                    <!-- Ocean Base -->
+                    <div class="absolute inset-0 bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-800 opacity-90"></div>
+                    
+                    <!-- Scrolling Map Container (200% width to loop seamlessly) -->
+                    <svg viewBox="0 0 200 100" class="absolute top-0 left-0 h-full w-[200%] animate-globe-spin" preserveAspectRatio="none">
+                        
+                        <!-- Map Part 1 -->
+                        <g fill="#34d399" opacity="0.85">
+                            <path d="M 10 30 Q 20 10 40 20 T 35 50 Q 20 55 10 30 Z" />
+                            <path d="M 55 15 Q 75 10 80 30 T 65 60 Q 45 45 55 15 Z" />
+                            <path d="M 25 65 Q 35 50 50 70 T 35 85 Q 20 80 25 65 Z" />
+                            <path d="M 75 40 Q 85 30 95 50 T 80 80 Q 65 65 75 40 Z" />
+                        </g>
+
+                        <!-- Map Part 2 (Exact duplicate shifted 100 units right for loop) -->
+                        <g fill="#34d399" opacity="0.85" transform="translate(100, 0)">
+                            <path d="M 10 30 Q 20 10 40 20 T 35 50 Q 20 55 10 30 Z" />
+                            <path d="M 55 15 Q 75 10 80 30 T 65 60 Q 45 45 55 15 Z" />
+                            <path d="M 25 65 Q 35 50 50 70 T 35 85 Q 20 80 25 65 Z" />
+                            <path d="M 75 40 Q 85 30 95 50 T 80 80 Q 65 65 75 40 Z" />
+                        </g>
+                        
+                        <!-- Latitude/Longitude Grid Lines -->
+                        <g stroke="#93c5fd" stroke-width="0.5" fill="none" opacity="0.4">
+                            <line x1="0" y1="25" x2="200" y2="25" />
+                            <line x1="0" y1="50" x2="200" y2="50" />
+                            <line x1="0" y1="75" x2="200" y2="75" />
+                        </g>
+                    </svg>
+                    
+                    <!-- 3D Shading Overlay (Simulates spherical volume via Inner Shadows) -->
+                    <div class="absolute inset-0 rounded-full shadow-[inset_-10px_-8px_16px_rgba(0,0,0,0.8),inset_4px_4px_12px_rgba(255,255,255,0.4)] pointer-events-none"></div>
+                </div>
+                
+            </div>
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-200 to-cyan-400 drop-shadow-lg">
+                GeoDash <span class="font-light text-cyan-400">Pro</span>
+            </h1>
+            <p class="text-indigo-200/80 text-sm md:text-lg max-w-xl mx-auto font-medium tracking-wide">
+                Next-Gen Geospatial Converter & Visualizer
+            </p>
+        </header>
+
+        <main class="glass rounded-[2rem] p-6 md:p-10 flex flex-col gap-8 relative overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] border-slate-700/50">
+            
+            <!-- Mode Toggle Switch -->
+            <div class="flex justify-center mb-2 z-10">
+                <div id="mode-toggle" class="relative flex items-center p-1 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 toggle-kml2csv w-72 h-12 shadow-inner cursor-pointer">
+                    <div class="toggle-bg"></div>
+                    <button id="btn-kml2csv" class="flex-1 btn-text text-white font-semibold text-sm h-full rounded-lg" onclick="switchMode('kml2csv')">KML to CSV</button>
+                    <button id="btn-csv2kml" class="flex-1 btn-text text-slate-400 font-semibold text-sm h-full rounded-lg" onclick="switchMode('csv2kml')">CSV to KML</button>
+                </div>
+            </div>
+
+            <!-- Options Container -->
+            <div id="options-container" class="flex justify-center transition-opacity duration-300 z-10">
+                <label class="flex items-center gap-3 cursor-pointer group bg-slate-900/50 px-4 py-2 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
+                    <div class="relative">
+                        <input type="checkbox" id="measure-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500 shadow-inner"></div>
+                    </div>
+                    <span class="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Calculate Route Lengths</span>
+                </label>
+            </div>
+
+            <!-- Drop Zone & File Input -->
+            <label id="drop-zone" for="file-input" class="drop-zone border-2 border-dashed border-slate-600 rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer group relative overflow-hidden h-64 shadow-inner z-10">
+                <div class="drop-icon-bg absolute w-32 h-32 bg-indigo-500/10 rounded-full z-0 flex items-center justify-center transition-all duration-500 group-hover:bg-indigo-500/20"></div>
+                <svg class="w-12 h-12 text-indigo-400 mb-4 z-10 transition-transform group-hover:scale-110 group-hover:-translate-y-2 duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                <p class="text-lg text-slate-300 font-medium z-10 text-center">Drag & Drop your file here</p>
+                <p class="text-sm text-slate-500 mt-2 z-10 text-center">or click to browse (<span id="file-type-label" class="text-indigo-400 font-semibold">.KML</span>)</p>
+                <input type="file" id="file-input" class="hidden" accept=".kml" onchange="handleFileSelect(event)">
+            </label>
+
+            <!-- Loader Overlay -->
+            <div id="loader-overlay" class="hidden absolute inset-0 bg-slate-900/90 backdrop-blur-md z-[150] items-center justify-center flex-col gap-4">
+                <div class="spinner"></div>
+                <p id="loader-stage" class="text-indigo-300 font-semibold tracking-widest uppercase text-sm text-center px-6">Processing Geospatial Data...</p>
+                <div class="w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+                    <div id="loader-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-[width] duration-150 ease-out" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="hidden bg-red-900/30 border border-red-500/50 text-red-300 px-6 py-4 rounded-xl items-center justify-between shadow-[0_0_20px_rgba(239,68,68,0.2)] z-10">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="error-text" class="font-medium text-sm"></span>
+                </div>
+                <button onclick="resetUI()" class="text-red-400 hover:text-white bg-red-500/20 hover:bg-red-500/40 p-1.5 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+
+            <!-- Results Area -->
+            <div id="results-area" class="hidden flex-col gap-8 animate-[fadeIn_0.5s_ease-out] z-10">
+                
+                <!-- Success Banner & Download -->
+                <div class="glass-card rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-emerald-500/20 p-3 rounded-full text-emerald-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-bold text-lg">Conversion Successful!</h3>
+                            <p class="text-slate-400 text-sm flex items-center gap-2">Ready to download: <span id="filename-display" class="text-emerald-300 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20"></span></p>
+                        </div>
+                    </div>
+                    <button id="download-btn" class="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-900 px-6 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/25 flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download File
+                    </button>
+                </div>
+
+                <!-- Dashboard Metrics -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 flex flex-col gap-4">
+                        <div class="glass-card rounded-2xl p-5 flex items-center justify-between">
+                            <div>
+                                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Features</p>
+                                <p id="stat-total" class="text-3xl font-bold text-white">0</p>
+                            </div>
+                            <div class="p-3 bg-slate-800 rounded-lg text-indigo-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="glass-card rounded-2xl p-4 text-center">
+                                <p class="text-slate-500 text-xs font-semibold uppercase mb-1">Points</p>
+                                <p id="stat-pts" class="text-xl font-bold text-blue-400">0</p>
+                            </div>
+                            <div class="glass-card rounded-2xl p-4 text-center">
+                                <p class="text-slate-500 text-xs font-semibold uppercase mb-1">Lines</p>
+                                <p id="stat-lines" class="text-xl font-bold text-indigo-400">0</p>
+                            </div>
+                            <div class="glass-card rounded-2xl p-4 text-center">
+                                <p class="text-slate-500 text-xs font-semibold uppercase mb-1">Polygons</p>
+                                <p id="stat-polys" class="text-xl font-bold text-purple-400">0</p>
+                            </div>
+                            <div class="glass-card rounded-2xl p-4 text-center">
+                                <p class="text-slate-500 text-xs font-semibold uppercase mb-1">Est Length</p>
+                                <p id="stat-length" class="text-lg font-bold text-emerald-400">0 m</p>
+                            </div>
+                        </div>
+
+                        <!-- NEW OUTLIER WIDGET -->
+                        <div class="glass-card rounded-2xl p-4 border border-rose-500/30 bg-gradient-to-br from-rose-950/40 to-slate-900/60 shadow-[0_0_15px_rgba(244,63,94,0.1)] group">
+                            <p class="text-rose-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                Farthest Outlier
+                            </p>
+                            <p id="stat-outlier-name" class="text-lg font-bold text-white truncate group-hover:text-rose-300 transition-colors">None</p>
+                            <p id="stat-outlier-dist" class="text-xs text-slate-400 mt-1 font-mono">Dist from Center: 0 m</p>
+                        </div>
+                    </div>
+
+                    <!-- Map Widget -->
+                    <div class="lg:col-span-2 glass-card rounded-2xl p-1 relative overflow-hidden h-[250px] border border-slate-700/50">
+                        <div class="absolute top-3 right-3 z-[400] bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full border border-slate-700 text-xs font-semibold text-slate-300 shadow-lg pointer-events-none flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Live Preview
+                        </div>
+                        <div id="map" class="w-full h-full rounded-xl z-0"></div>
+                        <div id="map-limit-note" class="hidden absolute bottom-3 left-3 z-[400] bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/40 text-[11px] font-medium text-amber-300 shadow-lg pointer-events-none"></div>
+                    </div>
+                </div>
+
+                <!-- Preview Table -->
+                <div class="mt-2 flex flex-col gap-3">
+                    <h4 class="text-sm font-semibold text-slate-400 uppercase tracking-wider px-1">Data Preview (Top 5 Rows)</h4>
+                    <div class="overflow-x-auto rounded-2xl border border-slate-700/50 shadow-inner bg-slate-900/60 backdrop-blur-md">
+                        <table class="w-full text-sm text-left text-slate-300">
+                            <thead id="preview-thead" class="text-xs text-slate-400 uppercase bg-slate-800/80 border-b border-slate-700/50 mono">
+                                <!-- Headers dynamically injected -->
+                            </thead>
+                            <tbody id="preview-tbody" class="divide-y divide-slate-800/50 mono text-xs">
+                                <!-- Rows dynamically injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentMode = 'kml2csv';
+        let convertedDataString = null;
+        let convertedFileName = null;
+        let leafletMap = null;
+        let featureLayerGroup = null;
+
+        // Max number of geometries actually drawn on the preview map.
+        // Stats (counts/length/outlier) are still computed over the FULL dataset;
+        // this only caps how many DOM/SVG layers Leaflet has to create, which is
+        // what makes the tab lock up on very large files.
+        const MAX_MAP_FEATURES = 2000;
+        // How many rows/items to process per animation frame before yielding
+        // back to the browser so it can paint and stay responsive.
+        const CHUNK_SIZE = 2000;
+
+        function yieldToUI() {
+            return new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        function updateLoaderStage(text, pct) {
+            const stageEl = document.getElementById('loader-stage');
+            if (stageEl) stageEl.textContent = text;
+            const barEl = document.getElementById('loader-progress-bar');
+            if (barEl && typeof pct === 'number') barEl.style.width = Math.min(100, Math.max(0, pct)) + '%';
+        }
+
+        // UI Elements Assignment
+        const modeToggle = document.getElementById('mode-toggle');
+        const btnKml = document.getElementById('btn-kml2csv');
+        const btnCsv = document.getElementById('btn-csv2kml');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileTypeLabel = document.getElementById('file-type-label');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const resultsArea = document.getElementById('results-area');
+        const optionsContainer = document.getElementById('options-container');
+        const loaderOverlay = document.getElementById('loader-overlay');
+        const filenameDisplay = document.getElementById('filename-display');
+        const downloadBtn = document.getElementById('download-btn');
+        const guideModal = document.getElementById('guide-modal');
+
+        // Toggle Guide Modal
+        function toggleGuide() {
+            if (guideModal.classList.contains('hidden')) {
+                guideModal.classList.remove('hidden');
+                setTimeout(() => guideModal.style.opacity = '1', 10);
+            } else {
+                guideModal.style.opacity = '0';
+                setTimeout(() => guideModal.classList.add('hidden'), 300);
+            }
+        }
+
+        // Initialize Leaflet Map
+        function initMap() {
+            if (leafletMap) return;
+            // Canvas renderer batches all shapes onto a single <canvas> instead of
+            // creating one SVG element per feature, which is dramatically faster
+            // once you're drawing thousands of points/lines/polygons.
+            leafletMap = L.map('map', { zoomControl: false, renderer: L.canvas() }).setView([0, 0], 2);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(leafletMap);
+            L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+            featureLayerGroup = L.featureGroup().addTo(leafletMap);
+        }
+
+        // Handle Mode Switching
+        function switchMode(mode) {
+            currentMode = mode;
+            if (mode === 'kml2csv') {
+                modeToggle.classList.remove('toggle-csv2kml');
+                modeToggle.classList.add('toggle-kml2csv');
+                btnKml.classList.replace('text-slate-400', 'text-white');
+                btnCsv.classList.replace('text-white', 'text-slate-400');
+                fileInput.accept = ".kml";
+                fileTypeLabel.textContent = ".KML";
+                optionsContainer.style.opacity = '1';
+                optionsContainer.style.pointerEvents = 'auto';
+            } else {
+                modeToggle.classList.remove('toggle-kml2csv');
+                modeToggle.classList.add('toggle-csv2kml');
+                btnCsv.classList.replace('text-slate-400', 'text-white');
+                btnKml.classList.replace('text-white', 'text-slate-400');
+                fileInput.accept = ".csv";
+                fileTypeLabel.textContent = ".CSV";
+                optionsContainer.style.opacity = '0.3';
+                optionsContainer.style.pointerEvents = 'none';
+            }
+            resetUI();
+        }
+
+        function resetUI() {
+            fileInput.value = "";
+            resultsArea.classList.remove('flex');
+            resultsArea.classList.add('hidden');
+            errorMessage.classList.remove('flex');
+            errorMessage.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+            dropZone.classList.add('flex');
+            convertedDataString = null;
+            if(featureLayerGroup) featureLayerGroup.clearLayers();
+            const limitNote = document.getElementById('map-limit-note');
+            if (limitNote) limitNote.classList.add('hidden');
+            updateLoaderStage('Processing Geospatial Data...', 0);
+        }
+
+        function showError(msg) {
+            errorText.textContent = msg;
+            errorMessage.classList.remove('hidden');
+            errorMessage.classList.add('flex');
+            resultsArea.classList.remove('flex');
+            resultsArea.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+            dropZone.classList.add('flex');
+        }
+
+        // Event Listeners for Drag and Drop
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFileSelect(e) {
+            if (e.target.files && e.target.files.length > 0) processFile(e.target.files[0]);
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = () => reject(new Error("Failed to read the file."));
+                reader.readAsText(file);
+            });
+        }
+
+        // Main File Processor
+        async function processFile(file) {
+            resetUI();
+
+            if (currentMode === 'kml2csv' && !file.name.toLowerCase().endsWith('.kml')) {
+                return showError("Invalid format. Please upload a .kml file.");
+            }
+            if (currentMode === 'csv2kml' && !file.name.toLowerCase().endsWith('.csv')) {
+                return showError("Invalid format. Please upload a .csv file.");
+            }
+
+            dropZone.classList.remove('flex');
+            dropZone.classList.add('hidden');
+            loaderOverlay.classList.remove('hidden');
+            loaderOverlay.classList.add('flex');
+            updateLoaderStage('Reading file...', 0);
+
+            // Let the loader overlay actually paint before the heavy work starts.
+            await yieldToUI();
+
+            try {
+                if (currentMode === 'kml2csv') {
+                    // KML needs to become a DOM tree (DOMParser), so it has to be
+                    // read fully into memory first - there's no streaming path for that.
+                    const content = await readFileAsText(file);
+                    await processKmlToCsv(content, file.name);
+                } else {
+                    // CSV is handed to PapaParse as a File, not a pre-read string:
+                    // PapaParse then streams it in chunks off the main thread
+                    // instead of us loading the whole thing into one giant string
+                    // and blocking the tab while it's parsed synchronously.
+                    await processCsvToKml(file, file.name);
+                }
+            } catch (error) {
+                console.error(error);
+                loaderOverlay.classList.add('hidden');
+                loaderOverlay.classList.remove('flex');
+                showError("Processing failed: " + error.message);
+            }
+        }
+
+        function getChildText(node, tagName) {
+            for (let child of node.children) {
+                if (child.localName === tagName) return child.textContent.trim();
+            }
+            return '';
+        }
+
+        function extractWkt(placemarkNode) {
+            let geomType = null, coords = null, wkt = '';
+            for (let child of placemarkNode.children) {
+                if (['Point', 'LineString', 'Polygon'].includes(child.localName)) {
+                    geomType = child.localName;
+                    if (geomType === 'Point' || geomType === 'LineString') {
+                        let coordNode = Array.from(child.children).find(c => c.localName === 'coordinates');
+                        if (coordNode) coords = coordNode.textContent;
+                    } else if (geomType === 'Polygon') {
+                        let ob = Array.from(child.children).find(c => c.localName === 'outerBoundaryIs');
+                        if (ob) {
+                            let lr = Array.from(ob.children).find(c => c.localName === 'LinearRing');
+                            if (lr) {
+                                let coordNode = Array.from(lr.children).find(c => c.localName === 'coordinates');
+                                if (coordNode) coords = coordNode.textContent;
+                            }
+                        }
+                    }
+                }
+            }
+            if (coords) {
+                const wktInner = coords.trim().split(/\s+/).filter(p => p).map(p => {
+                    const pts = p.split(',');
+                    return `${pts[0]} ${pts[1]}`;
+                }).join(', ');
+                
+                if (geomType === 'Point') wkt = `POINT(${wktInner.split(',')[0].trim()})`; 
+                else if (geomType === 'LineString') wkt = `LINESTRING(${wktInner})`;
+                else if (geomType === 'Polygon') wkt = `POLYGON((${wktInner}))`; 
+            }
+            return wkt;
+        }
+
+        function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const rLat1 = lat1 * Math.PI / 180;
+            const rLat2 = lat2 * Math.PI / 180;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // Parses a WKT string once into {type, latlngs}. Shared by the map
+        // renderer, the length calculator and the stats pass so we don't
+        // re-run the same regex/split work on the same string 2-3 times per row.
+        function parseWktLatLngs(wkt) {
+            const prefix = wkt.trimStart().slice(0, 10).toUpperCase();
+            if (prefix.startsWith('POINT')) {
+                const m = wkt.match(/\(([^)]+)\)/);
+                if (!m) return null;
+                const c = m[1].trim().split(/\s+/);
+                return { type: 'POINT', latlngs: [[parseFloat(c[1]), parseFloat(c[0])]] };
+            } else if (prefix.startsWith('LINESTRING')) {
+                const m = wkt.match(/\(([^)]+)\)/);
+                if (!m) return null;
+                const latlngs = m[1].split(',').map(p => {
+                    const c = p.trim().split(/\s+/);
+                    return [parseFloat(c[1]), parseFloat(c[0])];
+                });
+                return { type: 'LINESTRING', latlngs };
+            } else if (prefix.startsWith('POLYGON')) {
+                const m = wkt.match(/\(\(([^)]+)\)\)/);
+                if (!m) return null;
+                const latlngs = m[1].split(',').map(p => {
+                    const c = p.trim().split(/\s+/);
+                    return [parseFloat(c[1]), parseFloat(c[0])];
+                });
+                return { type: 'POLYGON', latlngs };
+            }
+            return null;
+        }
+
+        function lengthFromLatLngs(latlngs) {
+            let dist = 0;
+            for (let i = 0; i < latlngs.length - 1; i++) {
+                dist += calculateHaversineDistance(latlngs[i][0], latlngs[i][1], latlngs[i + 1][0], latlngs[i + 1][1]);
+            }
+            return dist;
+        }
+
+        function calculateWktLength(wkt) {
+            const parsed = parseWktLatLngs(wkt);
+            if (!parsed) return '0';
+            return lengthFromLatLngs(parsed.latlngs).toFixed(2);
+        }
+
+        async function processKmlToCsv(xmlString, originalFileName) {
+            updateLoaderStage('Parsing KML structure...', 10);
+            await yieldToUI();
+
+            const xmlDoc = new DOMParser().parseFromString(xmlString, "text/xml");
+            const includeMeasurement = document.getElementById('measure-toggle').checked;
+            if (xmlDoc.getElementsByTagName("parsererror").length > 0) throw new Error("Invalid XML/KML format.");
+
+            let placemarks = [];
+
+            function traverse(node, currentFolders) {
+                for (let child of node.children) {
+                    if (child.localName === 'Folder' || child.localName === 'Document') {
+                        let folderName = getChildText(child, 'name') || 'Unnamed';
+                        let nextFolders = [...currentFolders];
+                        if (child.localName === 'Folder' || (child.localName === 'Document' && nextFolders.length === 0)) {
+                            nextFolders.push(folderName);
+                        }
+                        traverse(child, nextFolders);
+                    } else if (child.localName === 'Placemark') {
+                        let wkt = extractWkt(child);
+                        if (wkt) {
+                            let pmData = { wkt: wkt, name: getChildText(child, 'name'), description: getChildText(child, 'description'), folders: currentFolders };
+                            if (includeMeasurement) {
+                                if (wkt.startsWith('POINT')) pmData.measurement = "Point";
+                                else if (wkt.startsWith('POLYGON')) pmData.measurement = "Polygon";
+                                else if (wkt.startsWith('LINESTRING')) pmData.measurement = calculateWktLength(wkt);
+                            }
+                            placemarks.push(pmData);
+                        }
+                    }
+                }
+            }
+            
+            traverse(xmlDoc.documentElement, []);
+            if (placemarks.length === 0) throw new Error("No geometric placemarks found.");
+
+            let maxFolders = 1;
+            for (const p of placemarks) maxFolders = Math.max(maxFolders, p.folders.length);
+
+            updateLoaderStage(`Building rows... (0/${placemarks.length})`, 20);
+            const csvData = new Array(placemarks.length);
+            for (let i = 0; i < placemarks.length; i++) {
+                const p = placemarks[i];
+                let row = { wkt: p.wkt, name: p.name, description: p.description };
+                if (includeMeasurement) row.measurement = p.measurement;
+
+                // Reversed folders: folder_1 is closest to object, folder_2 is parent, etc.
+                let reversedFolders = [...p.folders].reverse();
+                for (let j = 0; j < maxFolders; j++) row[`folder_${j + 1}`] = reversedFolders[j] || '';
+                csvData[i] = row;
+
+                if (i > 0 && i % CHUNK_SIZE === 0) {
+                    updateLoaderStage(`Building rows... (${i}/${placemarks.length})`, 20 + (i / placemarks.length) * 30);
+                    await yieldToUI();
+                }
+            }
+
+            updateLoaderStage('Generating CSV...', 55);
+            await yieldToUI();
+
+            convertedDataString = Papa.unparse(csvData);
+            convertedFileName = originalFileName.replace(/\.kml$/i, '') + '.csv';
+            await finishProcessing(csvData);
+        }
+
+        function wktToKmlGeom(wkt) {
+            if(!wkt) return '';
+            wkt = wkt.trim().toUpperCase();
+            try {
+                if (wkt.startsWith('POINT')) {
+                    let m = wkt.match(/\(([^)]+)\)/);
+                    if (!m) return '';
+                    let p = m[1].trim().split(' ');
+                    return `<Point><coordinates>${p[0]},${p[1]}</coordinates></Point>`;
+                } else if (wkt.startsWith('LINESTRING')) {
+                    let m = wkt.match(/\(([^)]+)\)/);
+                    if (!m) return '';
+                    let k = m[1].trim().split(',').map(p => { let pt = p.trim().split(' '); return `${pt[0]},${pt[1]}`; }).join(' ');
+                    return `<LineString><coordinates>${k}</coordinates></LineString>`;
+                } else if (wkt.startsWith('POLYGON')) {
+                    let m = wkt.match(/\(\(([^)]+)\)\)/);
+                    if (!m) return '';
+                    let k = m[1].trim().split(',').map(p => { let pt = p.trim().split(' '); return `${pt[0]},${pt[1]}`; }).join(' ');
+                    return `<Polygon><outerBoundaryIs><LinearRing><coordinates>${k}</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
+                }
+            } catch (e) { console.warn("Failed WKT parse:", wkt); }
+            return '';
+        }
+
+        function escapeXml(unsafe) {
+            return (unsafe||'').toString().replace(/[<>&'"]/g, c => {
+                switch(c) { case '<':return '&lt;'; case '>':return '&gt;'; case '&':return '&amp;'; case '\'':return '&apos;'; case '"':return '&quot;'; }
+            });
+        }
+
+        // Streams the CSV file through PapaParse instead of reading it fully
+        // into a string first and parsing that string synchronously - this is
+        // what lets a multi-hundred-thousand-row file be parsed without a
+        // single long blocking task.
+        function parseCsvFile(file) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    worker: true,
+                    complete: (results) => resolve(results),
+                    error: (err) => reject(err)
+                });
+            });
+        }
+
+        async function processCsvToKml(file, originalFileName) {
+            updateLoaderStage('Parsing CSV...', 5);
+            let parsed;
+            try {
+                parsed = await parseCsvFile(file);
+            } catch (e) {
+                // Worker parsing can fail in restrictive/offline environments
+                // (e.g. no access to spin up a Worker for the CDN script) -
+                // fall back to parsing on the main thread instead of failing outright.
+                console.warn('Worker CSV parsing failed, falling back to main thread.', e);
+                const csvText = await readFileAsText(file);
+                parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+            }
+
+            if (parsed.errors.length > 0 && parsed.data.length === 0) throw new Error("Failed to parse CSV.");
+            if (parsed.data.length === 0) throw new Error("CSV file is empty.");
+
+            const root = { type: 'Document', name: 'Converted Output', children: [], placemarks: [] };
+
+            // Folder columns are the same across every row, so compute the
+            // sorted key list once instead of re-deriving it (Object.keys +
+            // filter + sort) for every single row.
+            const allKeys = parsed.meta && parsed.meta.fields ? parsed.meta.fields : Object.keys(parsed.data[0] || {});
+            const folderKeys = allKeys.filter(k => k.toLowerCase().startsWith('folder_'))
+                .sort((a, b) => parseInt(b.split('_')[1] || 0) - parseInt(a.split('_')[1] || 0));
+
+            updateLoaderStage(`Building folder tree... (0/${parsed.data.length})`, 40);
+            for (let i = 0; i < parsed.data.length; i++) {
+                const row = parsed.data[i];
+                if (!row.wkt || row.wkt.trim() === '') continue;
+                let currentNode = root;
+
+                for (let key of folderKeys) {
+                    let folderName = row[key];
+                    if (!folderName || folderName.trim() === '') continue;
+                    let existing = currentNode.children.find(c => c.name === folderName);
+                    if (!existing) { existing = { type: 'Folder', name: folderName, children: [], placemarks: [] }; currentNode.children.push(existing); }
+                    currentNode = existing;
+                }
+                currentNode.placemarks.push(row);
+
+                if (i > 0 && i % CHUNK_SIZE === 0) {
+                    updateLoaderStage(`Building folder tree... (${i}/${parsed.data.length})`, 40 + (i / parsed.data.length) * 20);
+                    await yieldToUI();
+                }
+            }
+
+            updateLoaderStage('Generating KML...', 60);
+            await yieldToUI();
+
+            // Build into an array and join once at the end rather than repeated
+            // string concatenation, which is cheaper for very large outputs.
+            const parts = [];
+            function generateXml(node) {
+                if (node.type === 'Document') parts.push(`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n  <name>${escapeXml(node.name)}</name>\n`);
+                else if (node.type === 'Folder') parts.push(`<Folder>\n  <name>${escapeXml(node.name)}</name>\n`);
+
+                for (let pm of node.placemarks) {
+                    parts.push(`  <Placemark>\n`);
+                    if (pm.name) parts.push(`    <name>${escapeXml(pm.name)}</name>\n`);
+                    if (pm.description) parts.push(`    <description>${escapeXml(pm.description)}</description>\n`);
+                    let geomXml = wktToKmlGeom(pm.wkt);
+                    if (geomXml) parts.push(`    ${geomXml}\n`);
+                    parts.push(`  </Placemark>\n`);
+                }
+                for (let child of node.children) generateXml(child);
+                if (node.type === 'Document') parts.push(`</Document>\n</kml>`);
+                else if (node.type === 'Folder') parts.push(`</Folder>\n`);
+            }
+            generateXml(root);
+
+            convertedDataString = parts.join('');
+            convertedFileName = originalFileName.replace(/\.csv$/i, '') + '.kml';
+            await finishProcessing(parsed.data);
+        }
+
+        async function finishProcessing(dataArray) {
+            // Reveal the results area (so the map container has real size for
+            // Leaflet to initialize into) but keep the loader overlay on top
+            // while the potentially-heavy stats/map pass runs with progress feedback.
+            resultsArea.classList.remove('hidden');
+            resultsArea.classList.add('flex');
+
+            filenameDisplay.textContent = convertedFileName;
+
+            await updateStatsAndMap(dataArray);
+
+            updateLoaderStage('Finalizing...', 98);
+
+            // Build Table
+            const headers = Object.keys(dataArray[0]);
+            document.getElementById('preview-thead').innerHTML = `<tr>${headers.map(h => `<th scope="col" class="px-6 py-4">${h}</th>`).join('')}</tr>`;
+            document.getElementById('preview-tbody').innerHTML = dataArray.slice(0, 5).map(row => 
+                `<tr class="hover:bg-slate-800/80 transition-colors">
+                    ${headers.map(h => {
+                        let v = row[h] || '';
+                        if(v.length > 40) v = v.substring(0, 37) + '...';
+                        return `<td class="px-6 py-3 whitespace-nowrap">${escapeXml(v)}</td>`;
+                    }).join('')}
+                </tr>`
+            ).join('');
+
+            loaderOverlay.classList.add('hidden');
+            loaderOverlay.classList.remove('flex');
+        }
+
+        async function updateStatsAndMap(data) {
+            initMap();
+            featureLayerGroup.clearLayers();
+            let pts = 0, lines = 0, polys = 0, totalLength = 0;
+            // Lightweight records for every valid geometry - no Leaflet layers
+            // yet. Stats/outlier math run over ALL of these; only a capped,
+            // sampled subset gets turned into actual map layers below.
+            let features = [];
+
+            const total = data.length;
+            updateLoaderStage(`Analyzing features... (0/${total.toLocaleString()})`, 60);
+
+            for (let i = 0; i < total; i++) {
+                const row = data[i];
+                if (!row.wkt) continue;
+                try {
+                    const geom = parseWktLatLngs(row.wkt);
+                    if (!geom) continue;
+                    let center = null;
+                    if (geom.type === 'POINT') { pts++; center = geom.latlngs[0]; }
+                    else if (geom.type === 'LINESTRING') { lines++; totalLength += lengthFromLatLngs(geom.latlngs); center = geom.latlngs[0]; }
+                    else if (geom.type === 'POLYGON') { polys++; center = geom.latlngs[0]; }
+
+                    if (center && !isNaN(center[0]) && !isNaN(center[1])) {
+                        features.push({ type: geom.type, latlngs: geom.latlngs, center, row });
+                    }
+                } catch (e) { /* skip malformed geometry, keep going */ }
+
+                if (i > 0 && i % CHUNK_SIZE === 0) {
+                    updateLoaderStage(`Analyzing features... (${i.toLocaleString()}/${total.toLocaleString()})`, 60 + (i / total) * 15);
+                    await yieldToUI();
+                }
+            }
+
+            document.getElementById('stat-total').textContent = (pts + lines + polys).toLocaleString();
+            document.getElementById('stat-pts').textContent = pts.toLocaleString();
+            document.getElementById('stat-lines').textContent = lines.toLocaleString();
+            document.getElementById('stat-polys').textContent = polys.toLocaleString();
+
+            let lengthStr = totalLength > 1000 ? (totalLength / 1000).toFixed(2) + ' km' : totalLength.toFixed(2) + ' m';
+            document.getElementById('stat-length').textContent = lengthStr;
+
+            // --- OUTLIER DETECTION (over the FULL dataset, not just what's rendered) ---
+            let outlierFeature = null, avgLat = 0, avgLon = 0, maxDist = -1;
+            if (features.length > 0) {
+                let sumLat = 0, sumLon = 0;
+                for (const f of features) { sumLat += f.center[0]; sumLon += f.center[1]; }
+                avgLat = sumLat / features.length;
+                avgLon = sumLon / features.length;
+
+                for (const f of features) {
+                    const d = calculateHaversineDistance(avgLat, avgLon, f.center[0], f.center[1]);
+                    if (d > maxDist) { maxDist = d; outlierFeature = f; }
+                }
+
+                document.getElementById('stat-outlier-name').textContent = outlierFeature.row.name || 'Unnamed Feature';
+                let distStr = maxDist > 1000 ? (maxDist / 1000).toFixed(2) + ' km' : maxDist.toFixed(2) + ' m';
+                document.getElementById('stat-outlier-dist').textContent = `Dist from Center: ${distStr}`;
+            } else {
+                document.getElementById('stat-outlier-name').textContent = "None";
+                document.getElementById('stat-outlier-dist').textContent = "Dist from Center: 0 m";
+            }
+
+            // --- MAP RENDERING: capped + sampled + chunked so huge datasets
+            // never force the browser to build thousands of layers in one go ---
+            const mapStyle = { color: '#818cf8', weight: 3, opacity: 0.8, fillColor: '#6366f1', fillOpacity: 0.4 };
+            const markerOpt = { radius: 6, fillColor: '#818cf8', color: '#fff', weight: 1, opacity: 1, fillOpacity: 0.8 };
+            const limitNote = document.getElementById('map-limit-note');
+
+            let toRender = features;
+            if (features.length > MAX_MAP_FEATURES) {
+                // Evenly sample across the dataset instead of just the first N,
+                // so the preview isn't biased toward one region of a sorted file.
+                const step = features.length / MAX_MAP_FEATURES;
+                const sampled = [];
+                const seenIdx = new Set();
+                for (let k = 0; k < MAX_MAP_FEATURES; k++) {
+                    const idx = Math.floor(k * step);
+                    sampled.push(features[idx]);
+                    seenIdx.add(idx);
+                }
+                if (outlierFeature) {
+                    const outlierIdx = features.indexOf(outlierFeature);
+                    if (!seenIdx.has(outlierIdx)) sampled.push(outlierFeature);
+                }
+                toRender = sampled;
+                limitNote.textContent = `Map preview: showing ${toRender.length.toLocaleString()} of ${features.length.toLocaleString()} features (sampled for performance)`;
+                limitNote.classList.remove('hidden');
+            } else {
+                limitNote.classList.add('hidden');
+            }
+
+            updateLoaderStage(`Rendering map... (0/${toRender.length.toLocaleString()})`, 80);
+            let outlierLayer = null;
+            for (let n = 0; n < toRender.length; n++) {
+                const f = toRender[n];
+                const row = f.row;
+                try {
+                    const tooltipHtml = `
+                        <div class="font-sans text-xs min-w-[120px]">
+                            <strong class="text-indigo-400 block text-sm mb-1 border-b border-slate-700 pb-1">${escapeXml(row.name || 'Unnamed Feature')}</strong>
+                            ${row.folder_1 ? `<div class="mt-1"><span class="text-slate-400">Folder:</span> <span class="text-slate-200">${escapeXml(row.folder_1)}</span></div>` : ''}
+                            ${row.measurement && row.measurement !== 'Point' && row.measurement !== 'Polygon' ? `<div class="mt-1 text-emerald-400">Len: ${row.measurement} m</div>` : ''}
+                            <div class="mt-1 text-[10px] text-slate-500 font-mono opacity-70">${f.type}</div>
+                        </div>`;
+
+                    let layer = null;
+                    if (f.type === 'POINT') layer = L.circleMarker(f.latlngs[0], markerOpt).bindTooltip(tooltipHtml);
+                    else if (f.type === 'LINESTRING') layer = L.polyline(f.latlngs, mapStyle).bindTooltip(tooltipHtml);
+                    else if (f.type === 'POLYGON') layer = L.polygon([f.latlngs], mapStyle).bindTooltip(tooltipHtml);
+
+                    if (layer) {
+                        layer.addTo(featureLayerGroup);
+                        if (f === outlierFeature) outlierLayer = layer;
+                    }
+                } catch (e) { /* skip layers that fail to render, keep going */ }
+
+                if (n > 0 && n % 500 === 0) {
+                    updateLoaderStage(`Rendering map... (${n.toLocaleString()}/${toRender.length.toLocaleString()})`, 80 + (n / toRender.length) * 15);
+                    await yieldToUI();
+                }
+            }
+
+            if (features.length > 0) {
+                let centerIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div class="w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(16,185,129,0.9)] animate-pulse" style="margin-left:-8px; margin-top:-8px;"></div>`,
+                    iconSize: [0, 0] // Centered via CSS margins
+                });
+                L.marker([avgLat, avgLon], { icon: centerIcon })
+                    .addTo(featureLayerGroup)
+                    .bindTooltip(`<div class="font-bold text-emerald-400">Gathering Point (Center)</div>`);
+
+                if (outlierLayer) {
+                    if (outlierLayer instanceof L.CircleMarker) {
+                        outlierLayer.setStyle({ fillColor: '#f43f5e', color: '#fff', weight: 2, radius: 8 });
+                    } else {
+                        outlierLayer.setStyle({ color: '#f43f5e', fillColor: '#f43f5e', weight: 4 });
+                    }
+                    let oldTooltip = outlierLayer.getTooltip().getContent();
+                    outlierLayer.setTooltipContent(oldTooltip + `<div class="mt-2 text-rose-400 font-bold border-t border-rose-900/50 pt-1 flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Farthest Outlier</div>`);
+                }
+            }
+
+            await yieldToUI();
+            leafletMap.invalidateSize();
+            if (featureLayerGroup.getLayers().length > 0) {
+                leafletMap.fitBounds(featureLayerGroup.getBounds(), { padding: [20, 20], maxZoom: 16 });
+            }
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            if (!convertedDataString || !convertedFileName) return;
+            
+            // Save original button state
+            const originalHTML = downloadBtn.innerHTML;
+            const originalClasses = downloadBtn.className;
+            
+            // Step 1: Loading/Processing Animation State
+            downloadBtn.innerHTML = `
+                <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Processing...
+            `;
+            downloadBtn.classList.remove('from-emerald-500', 'to-teal-500', 'hover:-translate-y-0.5');
+            downloadBtn.classList.add('from-indigo-500', 'to-blue-500', 'scale-95');
+
+            // Fake delay for animation effect
+            setTimeout(() => {
+                // Execute actual file download
+                const mime = currentMode === 'kml2csv' ? 'text/csv;charset=utf-8;' : 'application/vnd.google-earth.kml+xml;charset=utf-8;';
+                const blob = new Blob([convertedDataString], { type: mime });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = convertedFileName;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                // Step 2: Success Animation State
+                downloadBtn.innerHTML = `
+                    <svg class="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    Downloaded!
+                `;
+                downloadBtn.classList.remove('from-indigo-500', 'to-blue-500', 'scale-95');
+                downloadBtn.classList.add('from-emerald-400', 'to-teal-400', 'scale-105', 'shadow-[0_0_30px_rgba(52,211,153,0.5)]');
+                
+                // Step 3: Reset Button back to original state
+                setTimeout(() => {
+                    downloadBtn.innerHTML = originalHTML;
+                    downloadBtn.className = originalClasses;
+                }, 2500);
+
+            }, 800); // 800ms loading duration
+        });
+
+        // Space Background Animation
+        const canvas = document.getElementById('space-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+        
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initSpace();
+        });
+
+        let stars = [];
+        let meteors = [];
+
+        function initSpace() {
+            stars = [];
+            for (let i = 0; i < 200; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.5,
+                    opacity: Math.random(),
+                    speed: (Math.random() * 0.2) + 0.05
+                });
+            }
+        }
+
+        function createMeteor() {
+            if (Math.random() < 0.015) {
+                meteors.push({
+                    x: Math.random() * width,
+                    y: -50,
+                    length: Math.random() * 80 + 20,
+                    speed: Math.random() * 10 + 10,
+                    opacity: 1
+                });
+            }
+        }
+
+        function animateSpace() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw Stars
+            stars.forEach(star => {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+                ctx.fill();
+                
+                star.y -= star.speed; 
+                if (star.y < 0) {
+                    star.y = height;
+                    star.x = Math.random() * width;
+                }
+            });
+
+            // Draw Meteors
+            createMeteor();
+            for (let i = meteors.length - 1; i >= 0; i--) {
+                let m = meteors[i];
+                ctx.beginPath();
+                ctx.moveTo(m.x, m.y);
+                ctx.lineTo(m.x - m.length, m.y + m.length);
+                ctx.strokeStyle = `rgba(167, 139, 250, ${m.opacity})`; 
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                
+                m.x -= m.speed; 
+                m.y += m.speed;
+                m.opacity -= 0.015; 
+                
+                if (m.opacity <= 0 || m.y > height) {
+                    meteors.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animateSpace);
+        }
+
+        initSpace();
+        animateSpace();
+    </script>
+</body>
+</html>
