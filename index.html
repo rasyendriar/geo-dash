@@ -158,11 +158,11 @@
         }
 
         /* Guide Modal Animations */
-        #guide-modal {
+        #guide-modal, #style-modal {
             backdrop-filter: blur(20px);
             transition: opacity 0.3s ease, visibility 0.3s ease;
         }
-        #guide-modal.hidden {
+        #guide-modal.hidden, #style-modal.hidden {
             opacity: 0;
             visibility: hidden;
             display: flex; /* Keep flex context for internal alignment when active */
@@ -199,11 +199,72 @@
     <div class="cosmos-bg"></div>
     <canvas id="space-canvas" class="fixed inset-0 z-0 pointer-events-none"></canvas>
 
-    <!-- Guide / Help Button -->
-    <button onclick="toggleGuide()" class="fixed top-6 right-6 z-[100] glass px-4 py-2 rounded-full text-sm font-semibold text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-400 hover:bg-indigo-500/20 transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] flex items-center gap-2 group">
-        <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        User Guide
-    </button>
+    <!-- Guide / Help Button + Style Settings Button -->
+    <div class="fixed top-6 right-6 z-[100] flex items-center gap-2">
+        <button onclick="toggleStyleModal()" class="glass px-4 py-2 rounded-full text-sm font-semibold text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-500/20 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] flex items-center gap-2 group">
+            <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h9a2 2 0 012 2v1m-9 4h4m-4 4h4m5-6h4a2 2 0 012 2v9a2 2 0 01-2 2H9a2 2 0 01-2-2v-1"></path></svg>
+            <span class="hidden sm:inline">Style</span>
+        </button>
+        <button onclick="toggleGuide()" class="glass px-4 py-2 rounded-full text-sm font-semibold text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-400 hover:bg-indigo-500/20 transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] flex items-center gap-2 group">
+            <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="hidden sm:inline">User Guide</span>
+        </button>
+    </div>
+
+    <!-- Style Settings Modal -->
+    <div id="style-modal" class="fixed inset-0 z-[200] bg-slate-950/80 hidden items-center justify-center p-4">
+        <div class="glass-card max-w-lg w-full rounded-[2rem] p-8 relative border border-emerald-500/30 shadow-2xl shadow-emerald-500/20 transform transition-all">
+            <button onclick="toggleStyleModal()" class="absolute top-6 right-6 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-red-500/50 rounded-full p-2 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-400 mb-2 flex items-center gap-3">
+                <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h9a2 2 0 012 2v1m-9 4h4m-4 4h4m5-6h4a2 2 0 012 2v9a2 2 0 01-2 2H9a2 2 0 01-2-2v-1"></path></svg>
+                Style Settings
+            </h2>
+            <p class="text-slate-500 text-xs mb-6">Berlaku untuk file KML hasil konversi (CSV → KML) dan preview peta di bawah.</p>
+
+            <div class="space-y-5">
+                <div>
+                    <label class="text-sm font-semibold text-slate-300 block mb-2">Label Size <span class="text-slate-500 font-normal">(0 = sembunyikan nama)</span></label>
+                    <input type="number" id="style-label-size" value="0" min="0" step="0.1" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div class="bg-slate-900/40 rounded-xl p-4 border border-emerald-500/20">
+                    <h3 class="text-emerald-300 font-semibold text-sm mb-3">Point Style — Hollow Circle</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Color</label>
+                            <input type="color" id="style-point-color" value="#22c55e" class="w-full h-9 bg-slate-900 border border-slate-700 rounded-lg cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Scale</label>
+                            <input type="number" id="style-point-scale" value="0.8" min="0.1" step="0.1" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/40 rounded-xl p-4 border border-blue-500/20">
+                    <h3 class="text-blue-300 font-semibold text-sm mb-3">Line Style</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Color</label>
+                            <input type="color" id="style-line-color" value="#3b82f6" class="w-full h-9 bg-slate-900 border border-slate-700 rounded-lg cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Weight</label>
+                            <input type="number" id="style-line-weight" value="3.0" min="0.1" step="0.1" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex gap-3">
+                <button onclick="resetStyleDefaults()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2.5 rounded-full font-semibold transition-all">Reset Default</button>
+                <button onclick="toggleStyleModal()" class="flex-1 bg-gradient-to-r from-emerald-500 to-blue-500 text-white px-6 py-2.5 rounded-full font-bold shadow-lg hover:shadow-emerald-500/50 transition-all">Apply</button>
+            </div>
+        </div>
+    </div>
 
     <!-- User Guide Modal -->
     <div id="guide-modal" class="fixed inset-0 z-[200] bg-slate-950/80 hidden items-center justify-center p-4">
@@ -236,6 +297,16 @@
                     <ul class="list-disc pl-5 space-y-2 text-sm">
                         <li><strong>Formatting:</strong> Your CSV must contain a <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">wkt</code> column and optional <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">name</code> / <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">description</code> columns.</li>
                         <li><strong>Rebuilding Folders:</strong> Includes columns like <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">folder_1</code>, <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">folder_2</code>, etc. GeoDash will flawlessly rebuild the original nested KML directory tree top-down!</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-900/50 p-5 rounded-xl border border-slate-700/50">
+                    <h3 class="text-emerald-300 font-bold text-lg mb-2 flex items-center gap-2">
+                        <span class="bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-400 text-sm">3</span> Style Settings
+                    </h3>
+                    <ul class="list-disc pl-5 space-y-2 text-sm">
+                        <li>Click the <strong>Style</strong> button (top-right) to customize label size, point icon (color/scale), and line color/weight.</li>
+                        <li>These settings are written into the generated KML's <code class="text-xs bg-slate-800 px-1 rounded text-pink-300">&lt;Style&gt;</code> blocks (visible in Google Earth) and are also reflected live in the map preview below.</li>
                     </ul>
                 </div>
             </div>
@@ -445,6 +516,9 @@
         let convertedFileName = null;
         let leafletMap = null;
         let featureLayerGroup = null;
+        // Last converted dataset, kept around so the map preview can be
+        // re-rendered immediately when style settings change.
+        let lastDataArray = null;
 
         // Max number of geometries actually drawn on the preview map.
         // Stats (counts/length/outlier) are still computed over the FULL dataset;
@@ -481,6 +555,7 @@
         const filenameDisplay = document.getElementById('filename-display');
         const downloadBtn = document.getElementById('download-btn');
         const guideModal = document.getElementById('guide-modal');
+        const styleModal = document.getElementById('style-modal');
 
         // Toggle Guide Modal
         function toggleGuide() {
@@ -490,6 +565,59 @@
             } else {
                 guideModal.style.opacity = '0';
                 setTimeout(() => guideModal.classList.add('hidden'), 300);
+            }
+        }
+
+        // --- Style Settings (Label size, Point icon, Line style) ---
+        // Applied both to the KML generated on CSV -> KML conversion and to
+        // the Leaflet preview map, so what you see in the preview matches
+        // what you get in the exported file.
+        function defaultStyleSettings() {
+            return { labelSize: 0, pointColor: '#22c55e', pointScale: 0.8, lineColor: '#3b82f6', lineWeight: 3.0 };
+        }
+
+        function getStyleSettings() {
+            const d = defaultStyleSettings();
+            const labelSize = parseFloat(document.getElementById('style-label-size').value);
+            const pointScale = parseFloat(document.getElementById('style-point-scale').value);
+            const lineWeight = parseFloat(document.getElementById('style-line-weight').value);
+            return {
+                labelSize: isNaN(labelSize) ? d.labelSize : labelSize,
+                pointColor: document.getElementById('style-point-color').value || d.pointColor,
+                pointScale: isNaN(pointScale) || pointScale <= 0 ? d.pointScale : pointScale,
+                lineColor: document.getElementById('style-line-color').value || d.lineColor,
+                lineWeight: isNaN(lineWeight) || lineWeight <= 0 ? d.lineWeight : lineWeight,
+            };
+        }
+
+        // Converts "#rrggbb" to KML's aabbggrr color format.
+        function hexToKmlColor(hex, alpha = 'ff') {
+            hex = (hex || '').replace('#', '');
+            if (!/^[0-9a-fA-F]{6}$/.test(hex)) hex = 'ffffff';
+            const r = hex.slice(0, 2), g = hex.slice(2, 4), b = hex.slice(4, 6);
+            return `${alpha}${b}${g}${r}`.toLowerCase();
+        }
+
+        function resetStyleDefaults() {
+            const d = defaultStyleSettings();
+            document.getElementById('style-label-size').value = d.labelSize;
+            document.getElementById('style-point-color').value = d.pointColor;
+            document.getElementById('style-point-scale').value = d.pointScale;
+            document.getElementById('style-line-color').value = d.lineColor;
+            document.getElementById('style-line-weight').value = d.lineWeight;
+            if (lastDataArray) updateStatsAndMap(lastDataArray);
+        }
+
+        function toggleStyleModal() {
+            if (styleModal.classList.contains('hidden')) {
+                styleModal.classList.remove('hidden');
+                setTimeout(() => styleModal.style.opacity = '1', 10);
+            } else {
+                styleModal.style.opacity = '0';
+                setTimeout(() => styleModal.classList.add('hidden'), 300);
+                // Re-render the preview (if a file is already converted) so
+                // style changes are reflected immediately.
+                if (lastDataArray) updateStatsAndMap(lastDataArray);
             }
         }
 
@@ -543,6 +671,7 @@
             dropZone.classList.remove('hidden');
             dropZone.classList.add('flex');
             convertedDataString = null;
+            lastDataArray = null;
             if(featureLayerGroup) featureLayerGroup.clearLayers();
             const limitNote = document.getElementById('map-limit-note');
             if (limitNote) limitNote.classList.add('hidden');
@@ -878,17 +1007,40 @@
             updateLoaderStage('Generating KML...', 60);
             await yieldToUI();
 
+            const style = getStyleSettings();
+            const POINT_STYLE_ID = 'geoDashPointStyle';
+            const LINE_STYLE_ID = 'geoDashLineStyle';
+            const styleDefsXml =
+                `  <Style id="${POINT_STYLE_ID}">\n` +
+                `    <IconStyle>\n` +
+                `      <scale>${style.pointScale}</scale>\n` +
+                `      <color>${hexToKmlColor(style.pointColor)}</color>\n` +
+                `      <Icon><href>http://maps.google.com/mapfiles/kml/shapes/donut.png</href></Icon>\n` +
+                `    </IconStyle>\n` +
+                `    <LabelStyle><scale>${style.labelSize}</scale></LabelStyle>\n` +
+                `  </Style>\n` +
+                `  <Style id="${LINE_STYLE_ID}">\n` +
+                `    <LineStyle>\n` +
+                `      <color>${hexToKmlColor(style.lineColor)}</color>\n` +
+                `      <width>${style.lineWeight}</width>\n` +
+                `    </LineStyle>\n` +
+                `    <LabelStyle><scale>${style.labelSize}</scale></LabelStyle>\n` +
+                `  </Style>\n`;
+
             // Build into an array and join once at the end rather than repeated
             // string concatenation, which is cheaper for very large outputs.
             const parts = [];
             function generateXml(node) {
-                if (node.type === 'Document') parts.push(`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n  <name>${escapeXml(node.name)}</name>\n`);
+                if (node.type === 'Document') parts.push(`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n  <name>${escapeXml(node.name)}</name>\n${styleDefsXml}`);
                 else if (node.type === 'Folder') parts.push(`<Folder>\n  <name>${escapeXml(node.name)}</name>\n`);
 
                 for (let pm of node.placemarks) {
                     parts.push(`  <Placemark>\n`);
                     if (pm.name) parts.push(`    <name>${escapeXml(pm.name)}</name>\n`);
                     if (pm.description) parts.push(`    <description>${escapeXml(pm.description)}</description>\n`);
+                    const geomType = parseWktLatLngs(pm.wkt)?.type;
+                    if (geomType === 'POINT') parts.push(`    <styleUrl>#${POINT_STYLE_ID}</styleUrl>\n`);
+                    else if (geomType === 'LINESTRING') parts.push(`    <styleUrl>#${LINE_STYLE_ID}</styleUrl>\n`);
                     let geomXml = wktToKmlGeom(pm.wkt);
                     if (geomXml) parts.push(`    ${geomXml}\n`);
                     parts.push(`  </Placemark>\n`);
@@ -912,6 +1064,7 @@
             resultsArea.classList.add('flex');
 
             filenameDisplay.textContent = convertedFileName;
+            lastDataArray = dataArray;
 
             await updateStatsAndMap(dataArray);
 
@@ -999,8 +1152,14 @@
 
             // --- MAP RENDERING: capped + sampled + chunked so huge datasets
             // never force the browser to build thousands of layers in one go ---
-            const mapStyle = { color: '#818cf8', weight: 3, opacity: 0.8, fillColor: '#6366f1', fillOpacity: 0.4 };
-            const markerOpt = { radius: 6, fillColor: '#818cf8', color: '#fff', weight: 1, opacity: 1, fillOpacity: 0.8 };
+            const style = getStyleSettings();
+            // Base radius before applying the user's point scale (0.8 default
+            // renders close to the tool's original 6px marker size).
+            const POINT_BASE_RADIUS = 8;
+            // Hollow circle: no fill, just a colored outline ring.
+            const markerOpt = { radius: POINT_BASE_RADIUS * style.pointScale, color: style.pointColor, weight: 2, opacity: 1, fillOpacity: 0 };
+            const lineOpt = { color: style.lineColor, weight: style.lineWeight, opacity: 0.8 };
+            const polygonStyle = { color: '#818cf8', weight: 3, opacity: 0.8, fillColor: '#6366f1', fillOpacity: 0.4 };
             const limitNote = document.getElementById('map-limit-note');
 
             let toRender = features;
@@ -1042,8 +1201,8 @@
 
                     let layer = null;
                     if (f.type === 'POINT') layer = L.circleMarker(f.latlngs[0], markerOpt).bindTooltip(tooltipHtml);
-                    else if (f.type === 'LINESTRING') layer = L.polyline(f.latlngs, mapStyle).bindTooltip(tooltipHtml);
-                    else if (f.type === 'POLYGON') layer = L.polygon([f.latlngs], mapStyle).bindTooltip(tooltipHtml);
+                    else if (f.type === 'LINESTRING') layer = L.polyline(f.latlngs, lineOpt).bindTooltip(tooltipHtml);
+                    else if (f.type === 'POLYGON') layer = L.polygon([f.latlngs], polygonStyle).bindTooltip(tooltipHtml);
 
                     if (layer) {
                         layer.addTo(featureLayerGroup);
@@ -1069,7 +1228,7 @@
 
                 if (outlierLayer) {
                     if (outlierLayer instanceof L.CircleMarker) {
-                        outlierLayer.setStyle({ fillColor: '#f43f5e', color: '#fff', weight: 2, radius: 8 });
+                        outlierLayer.setStyle({ fillColor: '#f43f5e', fillOpacity: 0.9, color: '#fff', weight: 2, radius: 8 });
                     } else {
                         outlierLayer.setStyle({ color: '#f43f5e', fillColor: '#f43f5e', weight: 4 });
                     }
